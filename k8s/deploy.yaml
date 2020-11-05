@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verify
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verify
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: verify
+    spec:
+      nodeSelector:
+        'beta.kubernetes.io/os': linux
+      imagePullSecrets:
+      - name: skgcr
+      containers:
+        - name: verify
+          image: skgcr.azurecr.io/sam/verify:latest
+          imagePullPolicy: Always
+          # ports:
+          #   - containerPort: 8080
+          volumeMounts:
+          - mountPath: "/mnt/azure"
+            name: volume
+      volumes:
+      - name: volume
+        persistentVolumeClaim:
+          claimName: my-azurefile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verify
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 3000
+  selector:
+    app: verify
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: verify
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - host: verify.skgcvrd.kubepia.net
+    http:
+      paths:
+      - backend:
+          serviceName: verify
+          servicePort: 8080
+        path: /
+---
